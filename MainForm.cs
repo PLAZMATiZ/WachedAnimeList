@@ -29,11 +29,19 @@ namespace WachedAnimeList
             new WachedAnimeSaveLoad().Initialize();
             new Settings().Initialize();
             new SiteParser().Initialize();
+            new Resizer().Initialize();
+            ResizeAll();
 
 
             SetupSearchDelay();
+            SetupResizeDelay();
             this.BackColor = Color.FromArgb(10, 10, 10);
-            this.Resize += (s, e) => ResizeAnimeListPanel();
+
+            this.Resize += (s, e) =>
+            {
+                resizeDelayTimer.Stop();
+                resizeDelayTimer.Start();
+            };
         }
 
         public void ShowMessage(string message)
@@ -53,7 +61,7 @@ namespace WachedAnimeList
             {
                 string text = Clipboard.GetText();
 
-                if(SiteParser.Global.UrlValidate(text))
+                if (SiteParser.Global.UrlValidate(text))
                 {
                     var animeInfo = SiteParse(text);
                     return;
@@ -82,7 +90,6 @@ namespace WachedAnimeList
                 date = _date;
             });
 
-            MessageBox.Show($"Назва: {title}\nДата: {date}");
             string[] parts = title.Split('/', 2, StringSplitOptions.RemoveEmptyEntries);
 
             if (parts.Length == 2)
@@ -100,7 +107,7 @@ namespace WachedAnimeList
                 }
             }
 
-            if(AnimeNameEN == "" || AnimeName == "" || AnimeNameEN == null || AnimeName == null)
+            if (AnimeNameEN == "" || AnimeName == "" || AnimeNameEN == null || AnimeName == null)
             {
                 MessageBox.Show("Силка хуйня");
                 return;
@@ -380,7 +387,6 @@ namespace WachedAnimeList
         #region Search
 
         private System.Windows.Forms.Timer searchDelayTimer;
-
         private void SetupSearchDelay()
         {
             searchDelayTimer = new System.Windows.Forms.Timer
@@ -431,13 +437,31 @@ namespace WachedAnimeList
         #endregion
 
         #region Resize
-        private Size NormalFormSize = new Size(1280, 720);
 
-        private Size NormalAnimeListPanel = new Size(100, 420);
-        public void ResizeAnimeListPanel()
+        private System.Windows.Forms.Timer resizeDelayTimer;
+        private void SetupResizeDelay()
         {
-            float multiplayer = this.Size.Height / NormalFormSize.Height;
-            animeListPanel.Size = new Size(animeListPanel.Width, (int)(NormalAnimeListPanel.Height * multiplayer));
+            resizeDelayTimer = new System.Windows.Forms.Timer
+            {
+                Interval = 200
+            };
+
+            resizeDelayTimer.Tick += (s, e) =>
+            {
+                resizeDelayTimer.Stop();
+                ResizeAll();
+            };
+        }
+        public void ResizeAll()
+        {
+            animeListPanel.Size = new Size(this.Size.Width, this.Size.Height-120);
+
+            var newSize = Resizer.Global.ResizeX(new Size(950, 60));
+            Search.Size = newSize;
+            int newSizeX = newSize.Width;
+            int deltaSizeX = this.Size.Width - newSizeX;
+            Search.Location = new Point(deltaSizeX / 2, Search.Location.Y);
+
         }
         #endregion
         public void ReorderCards(string[] orderedNames)
@@ -821,7 +845,6 @@ namespace WachedAnimeList
                             if (i == 3)
                         { 
                                 date = node.InnerText.Trim();
-                            MessageBox.Show(node.InnerText.Trim());
                         }
                             i++;
                     }
@@ -837,8 +860,30 @@ namespace WachedAnimeList
     }
     public class Resizer()
     {
+        public static Resizer Global;
+        public readonly Size NormalFormSize = new Size(1920, 1080);
 
+        public void Initialize()
+        {
+            Global = this;
+        }
 
+        public Size ResizeXY(Size normalSize)
+        {
+            float multiplayerX = (float)MainForm.Global.Size.Width / NormalFormSize.Width;
+            float multiplayerY = (float)MainForm.Global.Size.Height / NormalFormSize.Height;
+            return new Size((int)(normalSize.Width * multiplayerX), (int)(normalSize.Height * multiplayerY));
+        }
+
+        public Size ResizeX(Size normalSize)
+        {
+            float multiplayerX = (float)MainForm.Global.Size.Width / NormalFormSize.Width;
+            return new Size((int)(normalSize.Width * multiplayerX), (int)(normalSize.Height));
+        }
+        public Size ResizeY(Size normalSize)
+        {
+            float multiplayerY = (float)MainForm.Global.Size.Height / NormalFormSize.Height;
+            return new Size((int)(normalSize.Width), (int)(normalSize.Height * multiplayerY));
+        }
     }
-
 }
