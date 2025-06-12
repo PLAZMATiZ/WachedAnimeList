@@ -62,6 +62,7 @@
             Search.BackColor = SystemColors.MenuText;
             Search.BorderStyle = BorderStyle.FixedSingle;
             Search.Cursor = Cursors.IBeam;
+            Search.ForeColor = Color.White;
             Search.Location = new Point(103, 200);
             Search.MaximumSize = new Size(600, 0);
             Search.Name = "Search";

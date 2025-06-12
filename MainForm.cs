@@ -8,6 +8,12 @@ using System.Text.RegularExpressions;
 using DeepL;
 using FuzzySharp;
 using JikanDotNet;
+using System.Net.Http;
+
+using HtmlAgilityPack;
+using HtmlDocument = HtmlAgilityPack.HtmlDocument;
+using System.Xml.Linq;
+using System.ComponentModel;
 
 namespace WachedAnimeList
 {
@@ -22,6 +28,7 @@ namespace WachedAnimeList
 
             new WachedAnimeSaveLoad().Initialize();
             new Settings().Initialize();
+            new SiteParser().Initialize();
 
 
             SetupSearchDelay();
@@ -46,7 +53,12 @@ namespace WachedAnimeList
             {
                 string text = Clipboard.GetText();
 
-                if (TextVerify(text))
+                if(SiteParser.Global.UrlValidate(text))
+                {
+                    var animeInfo = SiteParse(text);
+                    return;
+                }
+                else if (TextVerify(text))
                 {
                     AnimeNameFormating(text);
                 }
@@ -59,6 +71,42 @@ namespace WachedAnimeList
             {
                 MessageBox.Show("Даун скопіюй нормально");
             }
+        }
+        private async Task SiteParse(string url)
+        {
+            string title = "";
+            string date = "";
+            await SiteParser.Global.SiteParse(url, (_title, _date) =>
+            {
+                title = _title;
+                date = _date;
+            });
+
+            MessageBox.Show($"Назва: {title}\nДата: {date}");
+            string[] parts = title.Split('/', 2, StringSplitOptions.RemoveEmptyEntries);
+
+            if (parts.Length == 2)
+            {
+                AnimeName = parts[0].Trim();
+                AnimeNameEN = parts[1].Trim();
+            }
+            else
+            {
+                var (eng, other) = SplitByEnglish(title);
+                if (eng != "" && other != "")
+                {
+                    AnimeName = other.Trim();
+                    AnimeNameEN = eng.Trim();
+                }
+            }
+
+            if(AnimeNameEN == "" || AnimeName == "" || AnimeNameEN == null || AnimeName == null)
+            {
+                MessageBox.Show("Силка хуйня");
+                return;
+            }
+            else
+                GetAnimeTitle(AnimeNameEN, AnimeName);
         }
         private static bool TextVerify(string text)
         {
@@ -382,6 +430,7 @@ namespace WachedAnimeList
 
         #endregion
 
+        #region Resize
         private Size NormalFormSize = new Size(1280, 720);
 
         private Size NormalAnimeListPanel = new Size(100, 420);
@@ -390,6 +439,7 @@ namespace WachedAnimeList
             float multiplayer = this.Size.Height / NormalFormSize.Height;
             animeListPanel.Size = new Size(animeListPanel.Width, (int)(NormalAnimeListPanel.Height * multiplayer));
         }
+        #endregion
         public void ReorderCards(string[] orderedNames)
         {
             if (orderedNames == null || orderedNames.Length == 0)
@@ -654,7 +704,6 @@ namespace WachedAnimeList
             return animeTitle + ".jpg";
         }
     }
-
     public class WachedAnimeData
     {
         [JsonIgnore]
@@ -664,6 +713,122 @@ namespace WachedAnimeList
         public string connectedAnimeName { get; set; }
 
         public int rating { get; set; }
+    }
+
+    public class SiteParser()
+    {
+        public static SiteParser Global;
+
+        public void Initialize()
+        {
+            Global = this;
+        }
+        public bool UrlValidate(string url)
+        {
+            return Uri.TryCreate(url, UriKind.Absolute, out Uri uri);
+        }
+        public async Task SiteParse(string url, Action<string, string> callback)
+        {
+            string title = "";
+            string description = "";
+
+            var source = GetAnimeSource(url);
+            if (source == null)
+                return;
+            GetSourceContainers(source, out string[] nameContainers, out string[] dateContainers);
+            if (nameContainers == null || dateContainers == null)
+                return;
+
+            try
+            {
+                (title, description) = await ParseAnimeInfoAsync(url, nameContainers, dateContainers);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Помилка при парсингу: {ex.Message}");
+            }
+
+            callback(title, description);
+        }
+
+        private string GetAnimeSource(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri))
+                return null;
+
+            string host = uri.Host.ToLowerInvariant();
+
+            if (host.Contains("anilibria.tv"))
+                return "anilibria.tv";
+            else if (host.Contains("anilibria.wtf"))
+                return "anilibria.wtf";
+
+            return null;
+        }
+        private void GetSourceContainers(string source, out string[] name, out string[] reliaseDate)
+        {
+            switch (source)
+            {
+                case "anilibria.tv":
+                    name = new string[] { "//h1[contains(@class,'release-title')]"};
+                    reliaseDate = new string[] {"//a[contains(@class,'release-season')]" };
+                break;
+                
+                case "anilibria.wtf":
+                    name = new string[] { "//div[contains(@class, 'text-autosize') and contains(@class, 'ff-heading')]", "//div[contains(@class, 'fz-70') and contains(@class, 'ff-heading')]" };
+                    reliaseDate = new string[] { "//div[contains(@class, 'text-truncate')]" };
+                break;
+
+                default:
+                    name = null;
+                    reliaseDate = null;
+                break;
+            }
+        }
+        private async Task<(string Title, string Date)> ParseAnimeInfoAsync(string url, string[] NameContainers, string[] DateContainers)
+        {
+            url = url.Trim();
+            using var http = new HttpClient();
+            var response = await http.GetAsync(url);
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"HTTP error: {(int)response.StatusCode} {response.ReasonPhrase}");
+
+            var html = await response.Content.ReadAsStringAsync();
+
+            var doc = new HtmlDocument();
+            doc.LoadHtml(html);
+
+            string title = "";
+            foreach (var container in NameContainers)
+            {
+                var titleNode = doc.DocumentNode.SelectSingleNode(container);
+                title += titleNode?.InnerText.Trim() ?? "No title";
+                title += "\n";
+            }
+
+            string date = "";
+            foreach (var container in DateContainers)
+            {
+                var dateNode = doc.DocumentNode.SelectNodes(container);
+
+
+                if (dateNode != null || DateContainers[0] == "//div[contains(@class, 'text-truncate')]");
+                {
+                    int i = 0;
+                        foreach (var node in dateNode)
+                        {
+                            if (i == 3)
+                        { 
+                                date = node.InnerText.Trim();
+                            MessageBox.Show(node.InnerText.Trim());
+                        }
+                            i++;
+                    }
+                }
+            }
+            return (title, date);
+        }
     }
 
     public class WachedAnimeSaveDataCollection
