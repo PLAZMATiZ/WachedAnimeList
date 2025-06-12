@@ -1,24 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
+﻿using System.Data;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using static System.Windows.Forms.DataFormats;
-using System.Net.Http;
-using System.IO;
-using JikanDotNet;
-using DeepL;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using Image = System.Drawing.Image;
+using DeepL;
 using FuzzySharp;
-using System.Reflection;
-using System.Runtime.InteropServices;
+using JikanDotNet;
 
 namespace WachedAnimeList
 {
@@ -108,7 +97,7 @@ namespace WachedAnimeList
             }
             else
             {
-                var(eng, other) = SplitByEnglish(text);
+                var (eng, other) = SplitByEnglish(text);
                 if (eng != "" && other != "")
                 {
                     name = other.Trim();
@@ -126,7 +115,7 @@ namespace WachedAnimeList
                     eng_Name = translatedText.ToString();
                 }
             }
-            
+
 
             AnimeName = name;
             AnimeNameEN = eng_Name;
@@ -204,7 +193,7 @@ namespace WachedAnimeList
 
             string imageUrl = anime.Images.JPG.ImageUrl;
 
-            wachedAnimeData.animeNameEN = title; 
+            wachedAnimeData.animeNameEN = title;
             wachedAnimeData.animeName = animeName;
 
             try
@@ -456,7 +445,7 @@ namespace WachedAnimeList
                 config.Write("Size", size, "MainForm");
             }
 
-            if(mainForm.WindowState.ToString() != "Minimized")
+            if (mainForm.WindowState.ToString() != "Minimized")
                 config.Write("WindowState", mainForm.WindowState.ToString(), "MainForm");
         }
         public void LoadSettings()
@@ -602,7 +591,7 @@ namespace WachedAnimeList
 
             foreach (var item in wachedAnimeDict.Values)
             {
-                string finalPath = Path.Combine(folderPath, "Anime Icons" ,GetSafeImageFileName(item.animeName));
+                string finalPath = Path.Combine(folderPath, "Anime Icons", GetSafeImageFileName(item.animeName));
                 if (!File.Exists(finalPath))
                 {
                     System.Drawing.Image image = new Bitmap(item.animeImage);
@@ -639,7 +628,7 @@ namespace WachedAnimeList
                     animeNameEN = x.animeNameEN
                 };
 
-                wachedAnimeDict[animeData.animeNameEN] = animeData;
+                wachedAnimeDict.Add(animeData.animeNameEN, animeData);
             }
 
             // Завантаження картинок
@@ -682,9 +671,9 @@ namespace WachedAnimeList
         public WachedAnimeData[] dataCollection { get; set; }
     }
     public class Resizer()
-    { 
+    {
 
-        
+
     }
 
 }

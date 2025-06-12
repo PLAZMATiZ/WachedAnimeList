@@ -29,6 +29,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(AnimeCardForm));
             Anime_Image = new PictureBox();
             AnimeNameLable = new Label();
             RaitingBox = new FlowLayoutPanel();
@@ -98,6 +99,7 @@
             Controls.Add(RaitingBox);
             Controls.Add(Anime_Image);
             Controls.Add(AnimeNameLable);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             MinimumSize = new Size(600, 600);
             Name = "AnimeCardForm";
             StartPosition = FormStartPosition.CenterParent;

@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(MainForm));
             button1 = new Button();
             animeListPanel = new FlowLayoutPanel();
             Search = new TextBox();
@@ -79,6 +80,7 @@
             Controls.Add(Search);
             Controls.Add(animeListPanel);
             Controls.Add(button1);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "WachedAnimeList";
