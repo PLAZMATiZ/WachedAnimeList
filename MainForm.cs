@@ -14,6 +14,7 @@ using HtmlAgilityPack;
 using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using System.Xml.Linq;
 using System.ComponentModel;
+using WachedAnimeList.Properties;
 
 namespace WachedAnimeList
 {
@@ -22,9 +23,8 @@ namespace WachedAnimeList
         public static MainForm Global;
         public MainForm()
         {
-            Global = this;
-
             InitializeComponent();
+            Global = this;
 
             new WachedAnimeSaveLoad().Initialize();
             new Settings().Initialize();
@@ -32,9 +32,9 @@ namespace WachedAnimeList
             new Resizer().Initialize();
             ResizeAll();
 
-
             SetupSearchDelay();
             SetupResizeDelay();
+
             this.BackColor = Color.FromArgb(10, 10, 10);
 
             this.Resize += (s, e) =>
@@ -235,9 +235,6 @@ namespace WachedAnimeList
             }
         }
 
-
-        private Panel card;
-
         private async Task CreateWachedAnimeData(Anime anime, string animeName)
         {
             var wachedAnimeData = new WachedAnimeData();
@@ -377,7 +374,7 @@ namespace WachedAnimeList
         }
         public void RejectAnime()
         {
-            card = null;
+            
         }
 
         #endregion
@@ -454,7 +451,7 @@ namespace WachedAnimeList
         }
         public void ResizeAll()
         {
-            animeListPanel.Size = new Size(this.Size.Width, this.Size.Height-120);
+            animeListPanel.Size = new Size(this.Size.Width, this.Size.Height - 120);
 
             var newSize = Resizer.Global.ResizeX(new Size(950, 60));
             Search.Size = newSize;
@@ -483,10 +480,51 @@ namespace WachedAnimeList
 
             animeListPanel.ResumeLayout();
         }
-        private void Main_FormClosed(object sender, FormClosedEventArgs e)
+        public void ReloadAnimeCards()
+        {
+            if (WachedAnimeSaveLoad.Global != null)
+            {
+                WachedAnimeSaveLoad.Global.Load();
+                AddAnimeCardsAsync(WachedAnimeSaveLoad.Global.wachedAnimeDict.Values.ToArray());
+            }
+        }
+
+        private void ClearAnimeCards()
+        {
+            animeListPanel.SuspendLayout();
+            foreach (Control ctrl in animeListPanel.Controls)
+            {
+                // Відписуємо всі PictureBox події
+                if (ctrl is Panel panel)
+                {
+                    foreach (Control inner in panel.Controls)
+                    {
+                        if (inner is PictureBox pic)
+                        {
+                            pic.Click -= Card_Click;
+                            pic.Image?.Dispose(); // очищаємо картинку з памʼяті
+                        }
+                    }
+                    panel.Dispose(); // саму панель
+                }
+            }
+
+            animeListPanel.Controls.Clear();
+            cardCache.Clear();
+            animeListPanel.ResumeLayout();
+            WachedAnimeSaveLoad.Global.wachedAnimeDict.Clear();
+            GC.Collect(); // запуск GC (опціонально)
+        }
+
+
+        private void MainForm_Closing(object sender, FormClosingEventArgs e)
         {
             WachedAnimeSaveLoad.Global.Save();
             Settings.Global.SaveSettings();
+
+            e.Cancel = true;
+            this.Hide();
+            ClearAnimeCards();
         }
     }
 
@@ -494,6 +532,7 @@ namespace WachedAnimeList
     {
         public static Settings Global { get; set; }
         private readonly MainForm mainForm = MainForm.Global;
+        public IniFile iniFile;
 
         public void Initialize()
         {
@@ -550,7 +589,7 @@ namespace WachedAnimeList
             }
         }
     }
-    class IniFile
+    public class IniFile
     {
         string Path;
         string EXE = Assembly.GetExecutingAssembly().GetName().Name;
@@ -836,8 +875,7 @@ namespace WachedAnimeList
             {
                 var dateNode = doc.DocumentNode.SelectNodes(container);
 
-
-                if (dateNode != null || DateContainers[0] == "//div[contains(@class, 'text-truncate')]");
+                if (dateNode != null || DateContainers[0] == "//div[contains(@class, 'text-truncate')]")
                 {
                     int i = 0;
                         foreach (var node in dateNode)
@@ -886,4 +924,66 @@ namespace WachedAnimeList
             return new Size((int)(normalSize.Width), (int)(normalSize.Height * multiplayerY));
         }
     }
+
+    public class BackgroundForm : Form
+    {
+        private NotifyIcon trayIcon;
+        private MainForm mainForm;
+
+        public BackgroundForm()
+        {
+            // Ховаємо форму при запуску
+            this.WindowState = FormWindowState.Minimized;
+            this.ShowInTaskbar = false;
+            this.Visible = false;
+
+            trayIcon = new NotifyIcon()
+            {
+                Icon = Icon.FromHandle(Properties.Resources.Icon.GetHicon()),
+                Visible = true,
+                Text = "Wached Anime List DoNotClose",
+            };
+
+            var contextMenu = new ContextMenuStrip();
+            contextMenu.Items.Add(new ToolStripMenuItem("Відкрити", null, (s, e) => ShowMainForm()));
+            contextMenu.Items.Add(new ToolStripMenuItem("Вихід", null, (s, e) =>
+            {
+                trayIcon.Visible = false;
+                this.Close();
+                Application.Exit();
+            }));
+
+            trayIcon.ContextMenuStrip = contextMenu;
+            trayIcon.Click += (s, e) =>
+            {
+                if (e is MouseEventArgs me && me.Button == MouseButtons.Left)
+                {
+                    ShowMainForm();
+                }
+            };
+
+            ShowMainForm();
+        }
+
+        private void ShowMainForm()
+        {
+            if (mainForm == null || mainForm.IsDisposed)
+            {
+                mainForm = new MainForm();
+            }
+
+            if (WachedAnimeSaveLoad.Global.wachedAnimeDict.Count == 0)
+                MainForm.Global.ReloadAnimeCards();
+
+            mainForm.Show();
+            mainForm.BringToFront();
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            this.Hide(); // одразу ховаємо
+        }
+    }
+
 }

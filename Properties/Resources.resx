@@ -121,11 +121,14 @@
   <data name="5354782255207282339" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\5354782255207282339.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="5354782255207282340" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\5354782255207282340.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Безымянный-1" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Безымянный-1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="5355007796824896365" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\5355007796824896365.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="5354782255207282340" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\5354782255207282340.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
   <data name="bananaLight" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\bananaLight.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
@@ -136,7 +139,7 @@
   <data name="5350447830046734641" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\5350447830046734641.jpg;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="Безымянный-1" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\Безымянный-1.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="Icon" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\Icon.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>

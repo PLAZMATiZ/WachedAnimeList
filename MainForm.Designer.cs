@@ -70,6 +70,7 @@
             button1.TabIndex = 4;
             button1.Text = "Взяти з буферу обміна";
             button1.UseVisualStyleBackColor = false;
+            button1.Click += button1_Click;
             // 
             // Search
             // 
@@ -86,6 +87,7 @@
             Search.PlaceholderText = "Для пошуку пиши тут";
             Search.Size = new Size(950, 60);
             Search.TabIndex = 5;
+            Search.TextChanged += Search_TextChanged;
             // 
             // LogoBox
             // 
@@ -115,7 +117,7 @@
             Name = "MainForm";
             StartPosition = FormStartPosition.CenterScreen;
             Text = "WachedAnimeList";
-            FormClosed += Main_FormClosed;
+            FormClosing += MainForm_Closing;
             ((System.ComponentModel.ISupportInitialize)NavBox).EndInit();
             ((System.ComponentModel.ISupportInitialize)LogoBox).EndInit();
             ResumeLayout(false);
