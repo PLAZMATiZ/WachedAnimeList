@@ -7,7 +7,6 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using DeepL;
 using FuzzySharp;
-using JikanDotNet;
 using System.Net.Http;
 
 using HtmlAgilityPack;
@@ -15,6 +14,7 @@ using HtmlDocument = HtmlAgilityPack.HtmlDocument;
 using System.Xml.Linq;
 using System.ComponentModel;
 using WachedAnimeList.Properties;
+using JikanDotNet;
 
 namespace WachedAnimeList
 {
@@ -112,8 +112,7 @@ namespace WachedAnimeList
                 MessageBox.Show("Силка хуйня");
                 return;
             }
-            else
-                GetAnimeTitle(AnimeNameEN, AnimeName);
+            CreateAnimeCard(AnimeNameEN, AnimeName);
         }
         private static bool TextVerify(string text)
         {
@@ -171,12 +170,25 @@ namespace WachedAnimeList
                 }
             }
 
-
             AnimeName = name;
             AnimeNameEN = eng_Name;
 
-            GetAnimeTitle(eng_Name, name);
+            CreateAnimeCard(eng_Name, name);
         }
+
+        public async void CreateAnimeCard(string eng_Name, string name)
+        {
+            Anime title = await GetAnimeTitle(eng_Name);
+
+            var animeData = await CreateWachedAnimeData(title, name);
+            if (animeData == null)
+                return;
+
+            WachedAnimeSaveLoad.Global.AddAnime(animeData);
+
+            AddAnimeCardsAsync([animeData]);
+        }
+
         static bool IsEnglish(string word)
         {
             return Regex.IsMatch(word, "^[a-zA-Z]+$");
@@ -209,7 +221,7 @@ namespace WachedAnimeList
 
         #region Load Anime Icon
 
-        public async void GetAnimeTitle(string animeNameEN, string animeName)
+        public async Task<Anime> GetAnimeTitle(string animeNameEN)
         {
             var jikan = new Jikan();
 
@@ -221,8 +233,7 @@ namespace WachedAnimeList
                 if (filtered?.Count > 0)
                 {
                     var first = filtered.First();
-
-                    await CreateWachedAnimeData(first, animeName);
+                    return (filtered.First());
                 }
                 else
                 {
@@ -233,9 +244,10 @@ namespace WachedAnimeList
             {
                 Console.WriteLine("Помилка: " + ex.Message);
             }
+            return null;
         }
 
-        private async Task CreateWachedAnimeData(Anime anime, string animeName)
+        private async Task<WachedAnimeData> CreateWachedAnimeData(Anime anime, string animeName)
         {
             var wachedAnimeData = new WachedAnimeData();
 
@@ -256,22 +268,20 @@ namespace WachedAnimeList
                     using (var ms = new MemoryStream(imgData))
                     {
                         wachedAnimeData.animeImage = System.Drawing.Image.FromStream(ms);
-
-                        using (var newForm = new Form2(wachedAnimeData))
-                        {
-                            newForm.ShowDialog();
-                        }
-                        this.Show();
                     }
                 }
             }
             catch
             {
                 wachedAnimeData.animeImage = Properties.Resources._5350447830046734641;
+            }
 
-                var newForm = new Form2(wachedAnimeData);
-                newForm.ShowDialog();
-                this.Show();
+            // Очікуємо взаємодію з користувачем
+            var tcs = new TaskCompletionSource<WachedAnimeData>();
+            using (var form = new Form2(wachedAnimeData, tcs))
+            {
+                form.ShowDialog();
+                return await tcs.Task; // чекаємо, поки користувач не натисне кнопку
             }
         }
 
@@ -282,7 +292,6 @@ namespace WachedAnimeList
                 return;
 
             bool isBulk = animeArray.Length > 1;
-
             if (isBulk)
             {
                 animeListPanel.SuspendLayout();
@@ -365,16 +374,6 @@ namespace WachedAnimeList
                 newForm.ShowDialog();
             }
             this.Show();
-        }
-        public void AcceptAnime(WachedAnimeData animeData)
-        {
-            WachedAnimeSaveLoad.Global.AddAnime(animeData);
-
-            AddAnimeCardsAsync(new WachedAnimeData[1] { animeData });
-        }
-        public void RejectAnime()
-        {
-            
         }
 
         #endregion
@@ -668,10 +667,10 @@ namespace WachedAnimeList
 
         public void AddAnime(WachedAnimeData animeData)
         {
-            if (animeData == null || string.IsNullOrEmpty(animeData.animeName))
+            if (animeData == null || string.IsNullOrEmpty(animeData.animeNameEN))
                 return;
 
-            wachedAnimeDict[animeData.animeName] = animeData; // Додасть або оновить
+            wachedAnimeDict[animeData.animeNameEN] = animeData; // Додасть або оновить
         }
 
         public bool RemoveAnimeByName(string name)
@@ -680,7 +679,7 @@ namespace WachedAnimeList
         }
 
 
-        public void Save()
+        public async void Save()
         {
             if (folderPath == null)
                 Initialize();
@@ -711,23 +710,39 @@ namespace WachedAnimeList
                     image.Save(finalPath);
                 }
             }
+
+            var drive = new GoogleDriveHelper();
+            await drive.InitAsync();
+            await drive.UploadJsonAsync(json , "anime_data.json");
         }
 
 
-        public void Load()
+        public async void Load()
         {
-            string path = Path.Combine(folderPath, "anime_data.json");
+            WachedAnimeSaveDataCollection data = null;
 
-            if (!File.Exists(path))
-                return;
-
-            string json = File.ReadAllText(path);
-            if (string.IsNullOrWhiteSpace(json))
-                return;
-
-            var data = JsonSerializer.Deserialize<WachedAnimeSaveDataCollection>(json);
+            var drive = new GoogleDriveHelper();
+            await drive.InitAsync();
+            string jsonText = await drive.DownloadJsonAsync("anime_data.json");
+            if (!string.IsNullOrWhiteSpace(jsonText))
+            {
+                data = JsonSerializer.Deserialize<WachedAnimeSaveDataCollection>(jsonText);
+            }
             if (data == null || data.dataCollection == null)
-                return;
+            {
+                string path = Path.Combine(folderPath, "anime_data.json");
+
+                if (!File.Exists(path))
+                    return;
+
+                string json = File.ReadAllText(path);
+                if (string.IsNullOrWhiteSpace(json))
+                    return;
+
+                data = JsonSerializer.Deserialize<WachedAnimeSaveDataCollection>(json);
+                if (data == null || data.dataCollection == null)
+                    return;
+            }
 
             wachedAnimeDict.Clear(); // очищуємо словник перед завантаженням
 
@@ -788,12 +803,14 @@ namespace WachedAnimeList
         }
         public bool UrlValidate(string url)
         {
-            return Uri.TryCreate(url, UriKind.Absolute, out Uri uri);
+            bool isValid = Uri.TryCreate(url, UriKind.Absolute, out Uri uri);
+            //MainForm.Global.ShowMessage(isValid ? "URL валідний" : "URL невалідний");
+            return isValid;
         }
         public async Task SiteParse(string url, Action<string, string> callback)
         {
             string title = "";
-            string description = "";
+            string date = "";
 
             var source = GetAnimeSource(url);
             if (source == null)
@@ -804,14 +821,15 @@ namespace WachedAnimeList
 
             try
             {
-                (title, description) = await ParseAnimeInfoAsync(url, nameContainers, dateContainers);
+                (title, date) = await ParseAnimeInfoAsync(url, nameContainers, dateContainers);
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Помилка при парсингу: {ex.Message}");
             }
+            MessageBox.Show($"Пss: {title}  {date}");
 
-            callback(title, description);
+            callback(title, date);
         }
 
         private string GetAnimeSource(string url)
@@ -825,6 +843,8 @@ namespace WachedAnimeList
                 return "anilibria.tv";
             else if (host.Contains("anilibria.wtf"))
                 return "anilibria.wtf";
+            else if (host.Contains("anilibria.top"))
+                return "anilibria.top";
 
             return null;
         }
@@ -842,6 +862,10 @@ namespace WachedAnimeList
                     reliaseDate = new string[] { "//div[contains(@class, 'text-truncate')]" };
                 break;
 
+                case "anilibria.top":
+                    name = new string[] { "//div[contains(@class, 'text-autosize ff-heading lh-110 font-weight-bold mb-1')]", "//div[contains(@class, 'fz-70') and contains(@class, 'ff-heading')]" };
+                    reliaseDate = new string[] { "//div[contains(@class, 'text-truncate')]" };
+                break;
                 default:
                     name = null;
                     reliaseDate = null;
@@ -851,14 +875,16 @@ namespace WachedAnimeList
         private async Task<(string Title, string Date)> ParseAnimeInfoAsync(string url, string[] NameContainers, string[] DateContainers)
         {
             url = url.Trim();
-            using var http = new HttpClient();
-            var response = await http.GetAsync(url);
+            var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/122.0.0.0 Safari/537.36");
+            http.DefaultRequestHeaders.Accept.ParseAdd("text/html");
+            http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
 
-            if (!response.IsSuccessStatusCode)
-                throw new Exception($"HTTP error: {(int)response.StatusCode} {response.ReasonPhrase}");
+            var response = await http.GetAsync(url);
+            response.EnsureSuccessStatusCode();
 
             var html = await response.Content.ReadAsStringAsync();
-
+            
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
@@ -866,8 +892,11 @@ namespace WachedAnimeList
             foreach (var container in NameContainers)
             {
                 var titleNode = doc.DocumentNode.SelectSingleNode(container);
-                title += titleNode?.InnerText.Trim() ?? "No title";
-                title += "\n";
+                if (titleNode == null)
+                    MessageBox.Show($"Не знайдено елемент для XPath: {container}");
+
+                title += titleNode?.InnerText.Trim() ?? "";
+                title += " / ";
             }
 
             string date = "";
@@ -875,7 +904,7 @@ namespace WachedAnimeList
             {
                 var dateNode = doc.DocumentNode.SelectNodes(container);
 
-                if (dateNode != null || DateContainers[0] == "//div[contains(@class, 'text-truncate')]")
+                if (dateNode != null && DateContainers[0] == "//div[contains(@class, 'text-truncate')]")
                 {
                     int i = 0;
                         foreach (var node in dateNode)
@@ -888,6 +917,8 @@ namespace WachedAnimeList
                     }
                 }
             }
+            if(date == "")
+                date = "No date";
             return (title, date);
         }
     }
@@ -924,66 +955,4 @@ namespace WachedAnimeList
             return new Size((int)(normalSize.Width), (int)(normalSize.Height * multiplayerY));
         }
     }
-
-    public class BackgroundForm : Form
-    {
-        private NotifyIcon trayIcon;
-        private MainForm mainForm;
-
-        public BackgroundForm()
-        {
-            // Ховаємо форму при запуску
-            this.WindowState = FormWindowState.Minimized;
-            this.ShowInTaskbar = false;
-            this.Visible = false;
-
-            trayIcon = new NotifyIcon()
-            {
-                Icon = Icon.FromHandle(Properties.Resources.Icon.GetHicon()),
-                Visible = true,
-                Text = "Wached Anime List DoNotClose",
-            };
-
-            var contextMenu = new ContextMenuStrip();
-            contextMenu.Items.Add(new ToolStripMenuItem("Відкрити", null, (s, e) => ShowMainForm()));
-            contextMenu.Items.Add(new ToolStripMenuItem("Вихід", null, (s, e) =>
-            {
-                trayIcon.Visible = false;
-                this.Close();
-                Application.Exit();
-            }));
-
-            trayIcon.ContextMenuStrip = contextMenu;
-            trayIcon.Click += (s, e) =>
-            {
-                if (e is MouseEventArgs me && me.Button == MouseButtons.Left)
-                {
-                    ShowMainForm();
-                }
-            };
-
-            ShowMainForm();
-        }
-
-        private void ShowMainForm()
-        {
-            if (mainForm == null || mainForm.IsDisposed)
-            {
-                mainForm = new MainForm();
-            }
-
-            if (WachedAnimeSaveLoad.Global.wachedAnimeDict.Count == 0)
-                MainForm.Global.ReloadAnimeCards();
-
-            mainForm.Show();
-            mainForm.BringToFront();
-        }
-
-        protected override void OnLoad(EventArgs e)
-        {
-            base.OnLoad(e);
-            this.Hide(); // одразу ховаємо
-        }
-    }
-
 }

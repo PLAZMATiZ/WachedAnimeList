@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# OAuth Client ID (credentials.json)
+credentials.json
+Build Command.txt
