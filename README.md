@@ -45,7 +45,7 @@
 
 ---
 
-## Сайт
+## 🌐 Сайт
 
 https://www.wachedanimelist.info
 
